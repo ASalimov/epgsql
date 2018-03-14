@@ -6,11 +6,11 @@
 -behavior(gen_server).
 
 -export([start_link/0,
-         close/1,
-         get_parameter/2,
-         set_notice_receiver/2,
-         get_cmd_status/1,
-         cancel/1]).
+  close/1,
+  get_parameter/2,
+  set_notice_receiver/2,
+  get_cmd_status/1,
+  cancel/1, start_link/1]).
 
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 -export([init/1, code_change/3, terminate/2]).
@@ -96,6 +96,9 @@
 start_link() ->
     gen_server:start_link(?MODULE, [], []).
 
+start_link(Args) ->
+  gen_server:start_link(?MODULE, Args, []).
+
 close(C) when is_pid(C) ->
     catch gen_server:cast(C, stop),
     ok.
@@ -116,7 +119,16 @@ cancel(S) ->
 %% -- gen_server implementation --
 
 init([]) ->
-    {ok, #state{}}.
+    {ok, #state{}};
+
+init(Args) ->
+  State = #state{},
+  error_logger:error_msg("epgsql_sock init ~p", [Args]),
+  #state{queue = Q} = State,
+  Req = {{call, self()}, Command},
+  RspC = command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}),
+  error_logger:error_msg("epgsql_sock rsp connect ~p", [RspC]),
+  {ok, #state{}}.
 
 handle_call({update_type_cache, TypeInfos}, _From, #state{codec = Codec} = State) ->
     Codec2 = epgsql_binary:update_type_cache(TypeInfos, Codec),
