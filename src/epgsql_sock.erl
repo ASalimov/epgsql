@@ -170,7 +170,7 @@ handle_cast({{Method, From, Ref}, Command} = Req, State)
                                  complete_status = undefined});
 
 handle_cast(stop, State) ->
-    {stop, custom_stop, flush_queue(State, {error, closed})};
+  do_terminate( custom_stop, flush_queue(State, {error, closed}));
 
 handle_cast(cancel, State = #state{backend = {Pid, Key},
                                    sock = TimedOutSock}) ->
@@ -188,18 +188,18 @@ handle_cast(cancel, State = #state{backend = {Pid, Key},
 
 handle_info({Closed, Sock}, #state{sock = Sock} = State)
   when Closed == tcp_closed; Closed == ssl_closed ->
-    {stop, sock_closed, flush_queue(State#state{sock = undefined}, {error, sock_closed})};
+    do_terminate(sock_closed, flush_queue(State#state{sock = undefined}, {error, sock_closed}));
 
 handle_info({Error, Sock, Reason}, #state{sock = Sock} = State)
   when Error == tcp_error; Error == ssl_error ->
     Why = {sock_error, Reason},
-    {stop, Why, flush_queue(State, {error, Why})};
+    do_terminate(Why, flush_queue(State, {error, Why}));
 
 handle_info({inet_reply, _, ok}, State) ->
     {noreply, State};
 
 handle_info({inet_reply, _, Status}, State) ->
-    {stop, Status, flush_queue(State, {error, Status})};
+  do_terminate(Status, flush_queue(State, {error, Status}));
 
 handle_info({command, Command}, State) ->
   #state{queue = Q} = State,
@@ -209,14 +209,11 @@ handle_info({command, Command}, State) ->
 handle_info({_, Sock, Data2}, #state{data = Data, sock = Sock} = State) ->
     loop(State#state{data = <<Data/binary, Data2/binary>>}).
 
-terminate(Reason, #state{sock = undefined}) ->
-  error_logger:error_msg("epgsql_sock terminate: ~p ~p", [self(),Reason]),
+terminate(_, #state{sock = undefined}) ->
   ok;
-terminate(Reason, #state{mod = gen_tcp, sock = Sock}) ->
-  error_logger:error_msg("epgsql_sock terminate: ~p ~p", [self(),Reason]),
+terminate(_, #state{mod = gen_tcp, sock = Sock}) ->
   gen_tcp:close(Sock);
-terminate(Reason, #state{mod = ssl, sock = Sock}) ->
-  error_logger:error_msg("epgsql_sock terminate: ~p ~p", [self(),Reason]),
+terminate(_, #state{mod = ssl, sock = Sock}) ->
   ssl:close(Sock).
 
 code_change(_OldVsn, State, _Extra) ->
@@ -272,7 +269,7 @@ command({connect, Host, Username, Password, Opts}, State) ->
                           async = Async}};
 
         {error, Reason} = Error ->
-            {stop, Reason, finish(State, Error)}
+          do_terminate(Reason, finish(State, Error))
     end;
 
 command({squery, Sql}, State) ->
@@ -456,8 +453,8 @@ loop(#state{data = Data, handler = Handler, repl_last_received_lsn = LastReceive
             case ?MODULE:Handler(Message, State#state{data = Tail}) of
                 {noreply, State2} ->
                     loop(State2);
-                R = {stop, _Reason2, _State2} ->
-                    R
+                R = {stop, Reason2, State2} ->
+                  do_terminate(Reason2,State2)
             end;
         _ ->
             %% in replication mode send feedback after each batch of messages
@@ -628,7 +625,7 @@ auth({?AUTHENTICATION_REQUEST, <<M:?int32, _/binary>>}, State) ->
         _ -> unknown
     end,
     State2 = finish(State, {error, {unsupported_auth_method, Method}}),
-    {stop, unsupported_auth_method, State2};
+  do_terminate( unsupported_auth_method, State2};
 
 %% ErrorResponse
 auth({error, E}, State) ->
@@ -637,7 +634,7 @@ auth({error, E}, State) ->
         <<"28P01">> -> invalid_password;
         Any         -> Any
     end,
-    {stop, Why, finish(State, {error, Why})};
+  do_terminate( Why, finish(State, {error, Why}));
 
 auth(Other, State) ->
     on_message(Other, State).
@@ -663,7 +660,7 @@ initializing({?READY_FOR_QUERY, <<Status:8>>}, State) ->
     {noreply, State2};
 
 initializing({error, _} = Error, State) ->
-    {stop, Error, finish(State, Error)};
+  do_terminate( Error, finish(State, Error));
 
 initializing(Other, State) ->
     on_message(Other, State).
@@ -821,7 +818,7 @@ on_message({?READY_FOR_QUERY, <<Status:8>>}, State) ->
 on_message(Error = {error, Reason}, State) ->
     case queue:is_empty(State#state.queue) of
         true ->
-            {stop, {shutdown, Reason}, State};
+          do_terminate( {shutdown, Reason}, State);
         false ->
             State2 = case command_tag(State) of
                 C when C == squery; C == equery; C == execute_batch; C == prepared_query ->
@@ -860,7 +857,7 @@ on_message({?COPY_BOTH_RESPONSE, _Data}, State) ->
 
 %% CopyData for COPY command. COPY command not supported yet.
 on_message({?COPY_DATA, _Data}, #state{repl_cbmodule = undefined, repl_receiver = undefined} = State) ->
-    {stop, {error, copy_command_not_supported}, State};
+  do_terminate( {error, copy_command_not_supported}, State);
 
 %% CopyData for Replication mode
 on_message({?COPY_DATA, <<?PRIMARY_KEEPALIVE_MESSAGE:8, LSN:?int64, _Timestamp:?int64, ReplyRequired:8>>},
@@ -888,3 +885,10 @@ on_message({?COPY_DATA, <<?X_LOG_DATA, StartLSN:?int64, EndLSN:?int64, _Timestam
     {noreply, State#state{repl_feedback_required = true, repl_last_received_lsn = EndLSN,
         repl_last_flushed_lsn = LastFlushedLSN, repl_last_applied_lsn = LastAppliedLSN,
         repl_cbstate = NewCbState}}.
+
+
+
+do_terminate(Reason, State)->
+  error_logger:error_msg("epgsql_sock terminate: ~p ~p", [self(),Reason]),
+  {stop, Reason, State}.
+
