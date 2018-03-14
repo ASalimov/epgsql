@@ -122,6 +122,7 @@ init([]) ->
     {ok, #state{}};
 
 init(Args) ->
+  error_logger:error_msg("epgs socket ~p", [self()]),
   timer:sleep(50),
   Settings = epgsql:to_proplist(Args),
   Host = proplists:get_value(host, Settings, "localhost"),
@@ -130,15 +131,8 @@ init(Args) ->
   %% TODO connect timeout
   Command = {connect, Host, Username, Password, Settings},
   State = #state{},
-  #state{queue = Q} = State,
-
-  Req = {{call, undefined}, Command},
-  case command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}) of
-    {noreply, State1}->
-      {ok, State1};
-    {stop, _Reason, State1}->
-      {ok, State1}
-  end.
+  self()!Command,
+  {ok, State}.
 
 handle_call({update_type_cache, TypeInfos}, _From, #state{codec = Codec} = State) ->
     Codec2 = epgsql_binary:update_type_cache(TypeInfos, Codec),
