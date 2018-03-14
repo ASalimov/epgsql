@@ -132,9 +132,12 @@ init(Args) ->
   #state{queue = Q} = State,
 
   Req = {{call, undefined}, Command},
-  Rsp = command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}),
-  error_logger:error_msg("salimov posql ~p", [Rsp]),
-  {ok, Rsp}.
+  case command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}) of
+    {noreply, State1}->
+      {ok, State1};
+    {stop, Reason, _}->
+      {stop, Reason}
+  end.
 
 handle_call({update_type_cache, TypeInfos}, _From, #state{codec = Codec} = State) ->
     Codec2 = epgsql_binary:update_type_cache(TypeInfos, Codec),
