@@ -890,5 +890,5 @@ on_message({?COPY_DATA, <<?X_LOG_DATA, StartLSN:?int64, EndLSN:?int64, _Timestam
 
 do_terminate(Reason, State)->
   error_logger:error_msg("epgsql_sock terminate: ~p ~p", [self(),Reason]),
-  {stop, Reason, State}.
+  {stop, normal, State}.
 
