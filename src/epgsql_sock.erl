@@ -625,7 +625,7 @@ auth({?AUTHENTICATION_REQUEST, <<M:?int32, _/binary>>}, State) ->
         _ -> unknown
     end,
     State2 = finish(State, {error, {unsupported_auth_method, Method}}),
-  do_terminate( unsupported_auth_method, State2};
+  do_terminate( unsupported_auth_method, State2);
 
 %% ErrorResponse
 auth({error, E}, State) ->
