@@ -212,13 +212,13 @@ handle_info({_, Sock, Data2}, #state{data = Data, sock = Sock} = State) ->
     loop(State#state{data = <<Data/binary, Data2/binary>>}).
 
 terminate(Reason, #state{sock = undefined}) ->
-  error_logger:error_msg("epgsql_sock terminate: ~p", [Reason]),
+  error_logger:error_msg("epgsql_sock terminate: ~p ~p", [self(),Reason]),
   ok;
 terminate(Reason, #state{mod = gen_tcp, sock = Sock}) ->
-  error_logger:error_msg("epgsql_sock terminate: ~p", [Reason]),
+  error_logger:error_msg("epgsql_sock terminate: ~p ~p", [self(),Reason]),
   gen_tcp:close(Sock);
 terminate(Reason, #state{mod = ssl, sock = Sock}) ->
-  error_logger:error_msg("epgsql_sock terminate: ~p", [Reason]),
+  error_logger:error_msg("epgsql_sock terminate: ~p ~p", [self(),Reason]),
   ssl:close(Sock).
 
 code_change(_OldVsn, State, _Extra) ->
