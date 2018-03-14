@@ -482,6 +482,8 @@ finish(State = #state{queue = Q}, Notice, Result) ->
         ok;
       done->
         ok;
+      {columns,_}->
+        ok;
       _->
         error_logger:error_msg("epgsql_sock terminate: ~p ~p", [Notice, Result])
     end,
