@@ -132,9 +132,9 @@ init(Args) ->
   #state{queue = Q} = State,
 
   Req = {{call, undefined}, Command},
-  {Res, State1} = command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}),
-  error_logger:error_msg("salimov posql ~p", [Res]),
-  {ok, State1}.
+  Rsp = command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}),
+  error_logger:error_msg("salimov posql ~p", [Rsp]),
+  {ok, Rsp}.
 
 handle_call({update_type_cache, TypeInfos}, _From, #state{codec = Codec} = State) ->
     Codec2 = epgsql_binary:update_type_cache(TypeInfos, Codec),
@@ -467,8 +467,7 @@ finish(State, Result) ->
     finish(State, Result, Result).
 
 finish(State = #state{queue = Q}, Notice, Result) ->
-    SelfInfo =queue:get(Q),
-    case SelfInfo of
+    case queue:get(Q) of
         {{cast, From, Ref}, _} ->
             From ! {self(), Ref, Result};
         {{incremental, From, Ref}, _} ->
@@ -478,18 +477,12 @@ finish(State = #state{queue = Q}, Notice, Result) ->
         {{call, From}, _} ->
           gen_server:reply(From, Result)
     end,
-    State1 = State#state{queue = queue:drop(Q),
+     State#state{queue = queue:drop(Q),
       types = [],
       columns = [],
       rows = [],
       results = [],
-      batch = []},
-    case SelfInfo of
-      {{call, undefined}, _} ->
-        {Result, State1};
-      _->
-        State1
-    end.
+      batch = []}.
 
 
 add_result(State, Notice, Result) ->
