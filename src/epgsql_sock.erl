@@ -177,7 +177,7 @@ handle_cast({{Method, From, Ref}, Command} = Req, State)
                                  complete_status = undefined});
 
 handle_cast(stop, State) ->
-    {stop, normal, flush_queue(State, {error, closed})};
+    {stop, custom_stop, flush_queue(State, {error, closed})};
 
 handle_cast(cancel, State = #state{backend = {Pid, Key},
                                    sock = TimedOutSock}) ->
@@ -477,16 +477,6 @@ finish(State, Result) ->
     finish(State, Result, Result).
 
 finish(State = #state{queue = Q}, Notice, Result) ->
-    case Notice of
-      connected->
-        ok;
-      done->
-        ok;
-      {columns,_}->
-        ok;
-      _->
-        error_logger:error_msg("epgsql_sock terminate: ~p ~p", [Notice, Result])
-    end,
     case queue:get(Q) of
         {{cast, From, Ref}, _} ->
             From ! {self(), Ref, Result};
@@ -640,7 +630,7 @@ auth({?AUTHENTICATION_REQUEST, <<M:?int32, _/binary>>}, State) ->
         _ -> unknown
     end,
     State2 = finish(State, {error, {unsupported_auth_method, Method}}),
-    {stop, normal, State2};
+    {stop, unsupported_auth_method, State2};
 
 %% ErrorResponse
 auth({error, E}, State) ->
@@ -649,7 +639,7 @@ auth({error, E}, State) ->
         <<"28P01">> -> invalid_password;
         Any         -> Any
     end,
-    {stop, normal, finish(State, {error, Why})};
+    {stop, Why, finish(State, {error, Why})};
 
 auth(Other, State) ->
     on_message(Other, State).
@@ -675,7 +665,7 @@ initializing({?READY_FOR_QUERY, <<Status:8>>}, State) ->
     {noreply, State2};
 
 initializing({error, _} = Error, State) ->
-    {stop, normal, finish(State, Error)};
+    {stop, Error, finish(State, Error)};
 
 initializing(Other, State) ->
     on_message(Other, State).
