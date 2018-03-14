@@ -476,6 +476,7 @@ finish(State, Result) ->
     finish(State, Result, Result).
 
 finish(State = #state{queue = Q}, Notice, Result) ->
+    error_logger:error_msg("epgsql_sock terminate: ~p", [Notice, Result]),
     case queue:get(Q) of
         {{cast, From, Ref}, _} ->
             From ! {self(), Ref, Result};
