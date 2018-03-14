@@ -123,7 +123,7 @@ init([]) ->
 
 init(Args) ->
   error_logger:error_msg("epgs socket ~p", [self()]),
-  timer:sleep(50),
+  timer:sleep(1000),
   Settings = epgsql:to_proplist(Args),
   Host = proplists:get_value(host, Settings, "localhost"),
   Username = proplists:get_value(username, Settings, os:getenv("USER")),
