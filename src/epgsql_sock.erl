@@ -128,15 +128,12 @@ init(Args) ->
   Password = proplists:get_value(password, Settings, ""),
   %% TODO connect timeout
   Command = {connect, Host, Username, Password, Settings},
-
   State = #state{},
-  error_logger:error_msg("epgsql_sock init ~p", [Args]),
   #state{queue = Q} = State,
 
   Req = {{call, self()}, Command},
-  RspC = command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}),
-  error_logger:error_msg("epgsql_sock rsp connect ~p", [RspC]),
-  {ok, #state{}}.
+  {_, State1} = command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}),
+  {ok, State1}.
 
 handle_call({update_type_cache, TypeInfos}, _From, #state{codec = Codec} = State) ->
     Codec2 = epgsql_binary:update_type_cache(TypeInfos, Codec),
