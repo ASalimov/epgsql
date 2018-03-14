@@ -131,7 +131,7 @@ init(Args) ->
   State = #state{},
   #state{queue = Q} = State,
 
-  Req = {{call, self()}, Command},
+  Req = {{call, undefined}, Command},
   {_, State1} = command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}),
   {ok, State1}.
 
@@ -471,8 +471,10 @@ finish(State = #state{queue = Q}, Notice, Result) ->
             From ! {self(), Ref, Result};
         {{incremental, From, Ref}, _} ->
             From ! {self(), Ref, Notice};
+        {{call, undefined}, _} ->
+            ok;
         {{call, From}, _} ->
-            gen_server:reply(From, Result)
+          gen_server:reply(From, Result)
     end,
     State#state{queue = queue:drop(Q),
                 types = [],
