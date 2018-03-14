@@ -122,6 +122,7 @@ init([]) ->
     {ok, #state{}};
 
 init(Args) ->
+  timer:sleep(5000),
   Settings = epgsql:to_proplist(Args),
   Host = proplists:get_value(host, Settings, "localhost"),
   Username = proplists:get_value(username, Settings, os:getenv("USER")),
