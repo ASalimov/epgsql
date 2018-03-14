@@ -131,7 +131,7 @@ init(Args) ->
   %% TODO connect timeout
   Command = {connect, Host, Username, Password, Settings},
   State = #state{},
-  self()!Command,
+  self()!{command, Command},
   {ok, State}.
 
 handle_call({update_type_cache, TypeInfos}, _From, #state{codec = Codec} = State) ->
@@ -201,6 +201,11 @@ handle_info({inet_reply, _, ok}, State) ->
 
 handle_info({inet_reply, _, Status}, State) ->
     {stop, Status, flush_queue(State, {error, Status})};
+
+handle_info({command, Command}, State) ->
+  #state{queue = Q} = State,
+  Req = {{call, undefined}, Command},
+  command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined});
 
 handle_info({_, Sock, Data2}, #state{data = Data, sock = Sock} = State) ->
     loop(State#state{data = <<Data/binary, Data2/binary>>}).
