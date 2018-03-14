@@ -136,8 +136,8 @@ init(Args) ->
   case command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}) of
     {noreply, State1}->
       {ok, State1};
-    {stop, Reason, _}->
-      {stop, Reason}
+    {stop, _Reason, State1}->
+      {ok, State1}
   end.
 
 handle_call({update_type_cache, TypeInfos}, _From, #state{codec = Codec} = State) ->
