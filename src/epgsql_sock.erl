@@ -132,7 +132,8 @@ init(Args) ->
   #state{queue = Q} = State,
 
   Req = {{call, undefined}, Command},
-  {_, State1} = command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}),
+  {Res, State1} = command(Command, State#state{queue = queue:in(Req, Q), complete_status = undefined}),
+  error_logger:error_msg("salimov posql ~p", [Res]),
   {ok, State1}.
 
 handle_call({update_type_cache, TypeInfos}, _From, #state{codec = Codec} = State) ->
