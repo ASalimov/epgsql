@@ -466,7 +466,8 @@ finish(State, Result) ->
     finish(State, Result, Result).
 
 finish(State = #state{queue = Q}, Notice, Result) ->
-    case queue:get(Q) of
+    SelfInfo =queue:get(Q),
+    case SelfInfo of
         {{cast, From, Ref}, _} ->
             From ! {self(), Ref, Result};
         {{incremental, From, Ref}, _} ->
@@ -476,12 +477,19 @@ finish(State = #state{queue = Q}, Notice, Result) ->
         {{call, From}, _} ->
           gen_server:reply(From, Result)
     end,
-    State#state{queue = queue:drop(Q),
-                types = [],
-                columns = [],
-                rows = [],
-                results = [],
-                batch = []}.
+    State1 = State#state{queue = queue:drop(Q),
+      types = [],
+      columns = [],
+      rows = [],
+      results = [],
+      batch = []},
+    case SelfInfo of
+      {{call, undefined}, _} ->
+        {Result, State1};
+      _->
+        State1
+    end.
+
 
 add_result(State, Notice, Result) ->
     #state{queue = Q, results = Results, batch = Batch} = State,
